@@ -15,4 +15,4 @@ keyboard_hook: keyboard_hook.cpp
 	$(CXX) $(CXXFLAGS) -o keyboard_hook keyboard_hook.cpp -ludev
 
 clean:
-	rm -f $(BINARIES) keylog.txt
+	rm -f $(BINARIES) keyboard.log

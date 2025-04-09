@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -67,8 +68,6 @@ std::string findKeyboardDevice() {
             continue;
         }
 
-        std::cout << "Перевіряю: " << devicePath << " — \"" << name << "\"" << std::endl;
-
         if (isLikelyKeyboard(name)) {
             close(fd);
             return devicePath;
@@ -101,6 +100,8 @@ int main() {
         close(fd);
         return 1;
     }
+
+    std::cout << "Починаю прослуховування..." << std::endl;
 
     struct input_event ev;
     while (read(fd, &ev, sizeof(ev)) > 0) {
