@@ -10,6 +10,10 @@
 #include <vector>
 #include <unordered_map>
 
+const std::string DEV_INPUT_PATH = "/dev/input/";
+const int MAX_EVENTS = 32;
+const std::string LOG_FILE = "keyboard.log";
+
 const std::unordered_map<int, std::string> keyMap = {
     {KEY_A, "A"}, {KEY_B, "B"}, {KEY_C, "C"}, {KEY_D, "D"},
     {KEY_E, "E"}, {KEY_F, "F"}, {KEY_G, "G"}, {KEY_H, "H"},
@@ -43,10 +47,6 @@ std::string getKeyName(int code) {
         return "UNKNOWN_KEY_" + std::to_string(code);
     }
 }
-
-const std::string DEV_INPUT_PATH = "/dev/input/";
-const int MAX_EVENTS = 32;
-const std::string LOG_FILE = "keyboard.log";
 
 bool isLikelyKeyboard(const std::string &name) {
     std::string lowerName = name;
