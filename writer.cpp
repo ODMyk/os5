@@ -1,23 +1,18 @@
 #include <iostream>
-#include <fstream>
-#include <string>
+#include <unistd.h>
 
-const std::string SHARED_FILE = "/tmp/shared_memory.txt";
+#define INVITATION "Введіть ціле числове значення для його збереження або щось інше для виходу: "
+#define ENDING "Виконання завершено"
+
+extern "C" int input = 0;
 
 int main() {
-    std::ofstream outFile(SHARED_FILE);
-    if (!outFile.is_open()) {
-        std::cerr << "Не вдалося відкрити файл для запису: " << SHARED_FILE << std::endl;
-        return 1;
-    }
+    std::cout << "PID: " << getpid() << std::endl;
+    do {
+        std::cout << INVITATION;
+    } while ((std::cin >> input));
 
-    std::string input;
-    std::cout << "Введіть значення: ";
-    std::getline(std::cin, input);
+    std::cout << ENDING << std::endl;
 
-    outFile << input;
-    std::cout << "Значення записано у файл." << std::endl;
-
-    outFile.close();
     return 0;
 }
